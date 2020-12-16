@@ -19,10 +19,19 @@ const replacerFunc = () => {
     }
 
     const importWrapper = (value: any) => {
+      const parseArray = (arr: any) => {
+        return (
+          arr &&
+          arr
+            .map((e: any) => e.name?.escapedText)
+            .toString()
+            .replace(/,/g, ', ')
+        )
+      }
       const str =
         value?.moduleSpecifier?.parent?.statements ??
         value?.importClause?.name?.escapedText ??
-        value?.importClause?.namedBindings?.elements?.[0].name?.escapedText
+        parseArray(value?.importClause?.namedBindings?.elements)
 
       return value?.importClause?.namedBindings
         ? `import { ${str} } from '${value?.moduleSpecifier?.text}'`
@@ -33,9 +42,6 @@ const replacerFunc = () => {
 
     const getData = () => {
       if (Boolean(value) && value.kind === ts.SyntaxKind.ImportDeclaration) {
-        // if (value?.moduleSpecifier?.text === '../hooks/useSearchData') {
-        //   console.log('########## value', value)
-        // }
         return importWrapper(value)
       }
       if ([ts.SyntaxKind.JsxOpeningElement].includes(value.kind)) {
@@ -101,7 +107,11 @@ const appendData = () => {
   tmp.length &&
     fs.appendFileSync(
       'report.js',
-      imports +
+      prettier.format(imports, {
+        parser: 'babel',
+        plugins: [parserBabel],
+        languages: 'jsx',
+      }) +
         '\r\n' +
         prettier.format('<>' + tmp.trim() + '</>', {
           parser: 'babel',
@@ -114,8 +124,12 @@ const appendData = () => {
   tmp = ''
 }
 
+const reportPath = './report.js'
 const url = process.argv.slice(2)[0]
-fs.unlinkSync('./report.js')
+
+if (fs.existsSync(reportPath)) {
+  fs.unlinkSync(reportPath)
+}
 
 getAllFiles(url, []).forEach(fileName => {
   if (path.extname(fileName) === '.js') {
